@@ -1,0 +1,30 @@
+model:
+  neuro_nli_model: 'IDEA-CCNL/Erlangshen-Roberta-110M-NLI'
+  fine_tuned_model_path: 'models/fine_tuned_nli'
+  device: 'gpu'
+  use_fine_tuned: true
+
+rule_engine:
+  high_confidence_threshold: 0.70
+  low_confidence_threshold: 0.50
+  enable_negation_coverage: true
+  enable_inferential_conflict: true
+  enable_laterality_conflict: true
+
+nli:
+  confidence_threshold: 0.70
+  ambiguous_lower_bound: 0.45
+  ambiguous_upper_bound: 0.65
+  enable_neuro_nli: true
+  enable_rule_nli_fallback: true
+
+log:
+  level: 'INFO'
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  file_path: 'logs/radiology_checker.log'
+  max_file_size_mb: 10
+  backup_count: 5
+
+parser:
+  enable_uncertainty_detection: true
+  enable_laterality_detection: true
