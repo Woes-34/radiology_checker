@@ -1,6 +1,6 @@
 model:
   neuro_nli_model: 'IDEA-CCNL/Erlangshen-Roberta-110M-NLI'
-  fine_tuned_model_path: 'models/fine_tuned_nli'
+  fine_tuned_model_path: 'models/fine_tuned_auto'
   device: 'gpu'
   use_fine_tuned: true
 

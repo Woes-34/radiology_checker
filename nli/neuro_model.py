@@ -34,12 +34,14 @@ class NeuroNLIModel(NLIModelInterface):
         if model_name:
             self.model_name = model_name
         elif use_fine_tuned:
-            fine_tuned_auto_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models', 'fine_tuned_auto')
-            fine_tuned_nli_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models', 'fine_tuned_nli')
-            if os.path.exists(fine_tuned_auto_path):
-                self.model_name = fine_tuned_auto_path
-            elif os.path.exists(fine_tuned_nli_path):
-                self.model_name = fine_tuned_nli_path
+            from radiology_checker.config import get_config
+            config = get_config()
+            fine_tuned_path = config.get('model.fine_tuned_model_path', 'models/fine_tuned_auto')
+            abs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), fine_tuned_path)
+            if os.path.exists(abs_path):
+                self.model_name = abs_path
+            elif os.path.exists(fine_tuned_path):
+                self.model_name = fine_tuned_path
             elif use_medical_model:
                 self.model_name = 'trueto/medbert-base-chinese'
             else:
