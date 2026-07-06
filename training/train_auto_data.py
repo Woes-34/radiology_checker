@@ -4,7 +4,7 @@ import json
 import random
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 random.seed(42)
 np.random.seed(42)

@@ -4,7 +4,7 @@ import json
 import torch
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
