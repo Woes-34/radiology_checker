@@ -29,7 +29,10 @@ class RuleEngine:
     HIGH_CONFIDENCE_THRESHOLD = 0.8
     MEDIUM_CONFIDENCE_THRESHOLD = 0.55
     LOW_CONFIDENCE_THRESHOLD = 0.35
-
+    # 初始化规则引擎，设置置信度阈值
+    # 定义置信度等级对应的修饰符
+    # 定义稳定、术后、治疗后等修饰符
+    # 定义改进、好转等修饰符
     def __init__(self):
         self.logger = get_logger('RuleEngine')
         self.logger.info("初始化规则引擎")
@@ -39,13 +42,16 @@ class RuleEngine:
             'medium': ['考虑', '提示', '倾向于', '不除外'],
             'low': ['轻微', '少许', '少量', '轻度']
         }
-        
+        # 定义稳定、术后、治疗后等修饰符
         self.STABLE_WORDS = ['稳定', '不变', '无变化', '大小不变', '无进展', '未见进展']
         
+        # 定义术后、治疗后等修饰符
         self.POST_OP_WORDS = ['术后', '切除后', '术后改变', '治疗后']
         
+        # 定义改进、好转等修饰符    
         self.IMPROVEMENT_WORDS = ['吸收', '好转', '改善', '减轻', '消退']
-
+        
+    # 评估两个发现项匹配质量，根据解剖部位、病变类型、修饰符、侧位信息等计算匹配质量
     def _evaluate_match_quality(self, f1: Finding, f2: Finding) -> MatchQuality:
         quality = MatchQuality(
             site_match='none',
@@ -63,6 +69,7 @@ class RuleEngine:
         
         details = []
         
+        # 评估解剖部位匹配质量
         if f1.anatomical_site == f2.anatomical_site:
             quality.site_match = 'exact'
             quality.site_score = 0.45
@@ -82,6 +89,7 @@ class RuleEngine:
         is_negative = any(p in f1.raw_text for p in ['未见', '无', '没有']) or \
                      any(p in f2.raw_text for p in ['未见', '无', '没有'])
         
+        # 评估病变类型匹配质量
         if f1.lesion_type == f2.lesion_type:
             quality.lesion_match = 'exact'
             quality.lesion_score = 0.35
@@ -134,6 +142,7 @@ class RuleEngine:
             quality.is_match = False
             return quality
         
+        # 评估侧位信息匹配质量
         if f1.laterality and f2.laterality:
             if f1.laterality == f2.laterality:
                 quality.laterality_match = 'same'
@@ -151,7 +160,8 @@ class RuleEngine:
             quality.laterality_match = 'unknown'
             quality.lat_score = 0.0
             details.append("侧位信息缺失")
-        
+            
+        # 评估极性匹配质量
         if f1.polarity == f2.polarity:
             quality.polarity_match = 'same'
             quality.polarity_score = 0.05
@@ -161,24 +171,24 @@ class RuleEngine:
             quality.polarity_score = -0.08
             details.append(f"极性不同: 所见{'阳性' if f1.polarity else '阴性'} vs 结论{'阳性' if f2.polarity else '阴性'}")
 
-
+        # 评估不确定性惩罚
         uncertainty_penalty = self._calculate_uncertainty_penalty(f1.raw_text, f2.raw_text)
         if uncertainty_penalty > 0:
             details.append(f"不确定性惩罚: -{uncertainty_penalty:.2f}")
-        
+        # 评估稳定、术后、治疗后等修饰符
         if self._has_stable_pattern(f1.raw_text, f2.raw_text):
             quality.total_score -= 0.05
             details.append("检测到'稳定/不变'描述")
-        
+        # 评估术后、治疗后等修饰符
         if self._has_post_op_pattern(f1.raw_text, f2.raw_text):
             quality.total_score += 0.03
             details.append("检测到'术后改变'描述")
-        
+        # 评估好转、吸收等修饰符
         if self._has_improvement_pattern(f1.raw_text, f2.raw_text):
             details.append("检测到'好转/吸收'描述，降低矛盾优先级")
             if quality.polarity_match == 'different':
                 quality.polarity_score += 0.08
-        
+        # 评估总分数
         quality.total_score = (
             quality.site_score + 
             quality.lesion_score + 
@@ -194,7 +204,8 @@ class RuleEngine:
         quality.details = ' | '.join(details)
         
         return quality
-    
+
+    # 计算不确定性惩罚分数
     def _calculate_uncertainty_penalty(self, text1: str, text2: str) -> float:
         penalty = 0.0
         combined = text1 + text2
@@ -216,18 +227,22 @@ class RuleEngine:
         
         return min(penalty, 0.30)
     
+    # 评估两个文本是否包含'稳定/不变'修饰符
     def _has_stable_pattern(self, text1: str, text2: str) -> bool:
         combined = text1 + text2
         return any(word in combined for word in self.STABLE_WORDS)
     
+    # 评估两个文本是否包含'术后改变'修饰符
     def _has_post_op_pattern(self, text1: str, text2: str) -> bool:
         combined = text1 + text2
         return any(word in combined for word in self.POST_OP_WORDS)
-    
+
+    # 评估两个文本是否包含'好转/吸收'修饰符
     def _has_improvement_pattern(self, text1: str, text2: str) -> bool:
         combined = text1 + text2
         return any(word in combined for word in self.IMPROVEMENT_WORDS)
 
+    # 判断两个剖析部位类型是否相关
     def _is_site_related(self, site1: str, site2: str) -> bool:
         related_groups = [
             {'肺', '胸腔', '胸膜', '肺门', '上叶', '下叶', '中叶'},
@@ -248,7 +263,8 @@ class RuleEngine:
             if site1 in group and site2 in group:
                 return True
         return site1 == site2
-
+    
+    # 判断两个病变类型是否相关
     def _is_lesion_related(self, lesion1: str, lesion2: str) -> bool:
         related_groups = [
             {'结节', '肿块', '占位', '肿瘤'},
@@ -273,6 +289,7 @@ class RuleEngine:
             if lesion1 in group and lesion2 in group:
                 return True
         
+        # 处理负向描述
         negative_lesions = {'未见异常', '未见病变', '形态正常', '密度均匀', '正常', '未见明确异常', '未见明显异常', '无异常'}
         if lesion1 in negative_lesions or lesion2 in negative_lesions:
             positive_groups = [
@@ -295,7 +312,8 @@ class RuleEngine:
                     return True
         
         return False
-
+    
+    # 判断两个侧位是是否冲突
     def _is_laterality_conflict(self, lat1: str, lat2: str) -> bool:
         lat1 = lat1.replace('侧', '').replace('肺', '').replace('胸', '')
         lat2 = lat2.replace('侧', '').replace('肺', '').replace('胸', '')
@@ -336,6 +354,7 @@ class RuleEngine:
                 return True
         return False
 
+    # 判断是否为限定性否定描述（包含'除.*外'或'未见.*'影'）
     def _is_qualified_negation(self, text: str) -> bool:
         if self._is_remainder_description(text):
             return True
@@ -359,10 +378,12 @@ class RuleEngine:
         
         return False
 
+    # 匹配两个发现
     def _match_findings(self, f1: Finding, f2: Finding) -> Tuple[bool, float]:
         quality = self._evaluate_match_quality(f1, f2)
         return quality.is_match, quality.total_score
-
+        
+    # 检测极性冲突
     def _detect_polarity_conflict(self, f1: Finding, f2: Finding, 
                                    quality: MatchQuality) -> Optional[ConflictResult]:
         if quality.total_score < 0.45:
@@ -407,7 +428,8 @@ class RuleEngine:
             source_pair=(f1, f2),
             rule_type='polarity_conflict'
         )
-
+        
+    # 判断是否应跳过极性检查
     def _should_skip_polarity_check(self, f1: Finding, f2: Finding) -> bool:
         combined = f1.raw_text + f2.raw_text
         
@@ -423,7 +445,8 @@ class RuleEngine:
             return True
         
         return False
-
+        
+    # 检测侧位冲突
     def _detect_laterality_conflict(self, f1: Finding, f2: Finding, 
                                     findings_list: List[Finding], 
                                     conclusion_list: List[Finding],
@@ -521,7 +544,8 @@ class RuleEngine:
                         )
         
         return None
-
+        
+    # 检测限定词冲突
     def _detect_qualifier_conflict(self, f1: Finding, f2: Finding) -> Optional[ConflictResult]:
         if not f1.qualifier or not f2.qualifier:
             return None
@@ -557,7 +581,8 @@ class RuleEngine:
             if b in q1 and a in q2:
                 return True
         return False
-
+    
+    # 检测阴性覆盖矛盾
     def _detect_negation_coverage_conflict(self, f: Finding, c: Finding,
                                            findings_list: List[Finding],
                                            conclusion_list: List[Finding]) -> Optional[ConflictResult]:
@@ -590,7 +615,8 @@ class RuleEngine:
                 )
         
         return None
-
+        
+    # 检测显式否定矛盾
     def _detect_explicit_negation_conflict(self, f: Finding, c: Finding) -> Optional[ConflictResult]:
         if not f.raw_text or not c.raw_text:
             return None
@@ -660,7 +686,8 @@ class RuleEngine:
                     )
         
         return None
-
+        
+    # 检测推理矛盾（语义深层问题）
     def _detect_inferential_conflicts(self, findings_list: List[Finding], 
                                       conclusion_list: List[Finding],
                                       findings_raw_text: str = "",
@@ -813,7 +840,7 @@ class RuleEngine:
         
         return conflicts
 
-    
+    # 主入口，检查所有冲突
     def check_conflicts(self, findings_list: List[Finding], 
                        conclusion_list: List[Finding],
                        findings_raw_text: str = "",

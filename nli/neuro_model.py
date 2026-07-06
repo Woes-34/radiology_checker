@@ -54,6 +54,7 @@ class NeuroNLIModel(NLIModelInterface):
         if TRANSFORMERS_AVAILABLE:
             self._load_model()
     
+    # 加载模型和分词器，根据模型名称选择不同的模型
     def _load_model(self):
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -88,10 +89,14 @@ class NeuroNLIModel(NLIModelInterface):
                         self.logger.error(f"回退模型加载也失败: {e2}")
             self.tokenizer = None
             self.model = None
-
+    
+    # 检查模型是否可用
     def is_available(self) -> bool:
         return self.model is not None and TRANSFORMERS_AVAILABLE
-
+    
+    # 预测函数，根据前提和假设判断是否矛盾
+    # 如果模型不可用，返回默认结果
+    # 如果模型可用，根据模型输出判断是否矛盾
     def predict(self, premise: str, hypothesis: str) -> NLIResult:
         if not self.is_available():
             return NLIResult(
@@ -147,7 +152,9 @@ class NeuroNLIModel(NLIModelInterface):
                 confidence=0.0,
                 explanation=f"神经NLI模型预测失败: {e}"
             )
-
+    # 预测函数，根据前提和假设判断是否矛盾，返回概率分布
+    # 如果模型不可用，返回默认结果
+    # 如果模型可用，根据模型输出返回概率分布
     def predict_with_probs(self, premise: str, hypothesis: str) -> Dict[str, float]:
         if not self.is_available():
             return {'contradiction': 0.0, 'entailment': 0.0, 'neutral': 0.0}

@@ -8,7 +8,6 @@ from radiology_checker.schema import Report, Finding, ConflictResult
 from radiology_checker.core.parser import FindingParser
 from radiology_checker.core.rule_engine import RuleEngine
 from radiology_checker.nli.interface import NLIManager, NLIModelInterface
-from radiology_checker.nli.rule_model import ContextualNLI, EnhancedRuleBasedNLI
 from radiology_checker.config import get_config
 from radiology_checker.logger import get_logger
 
@@ -25,7 +24,8 @@ class ContradictionDetector:
         use_neuro = use_neuro_model or self.config.get('nli.enable_neuro_nli', True)
         self.nli_manager = NLIManager(nli_model, use_neuro_model=use_neuro)
         self.logger.info(f"NLI模型配置: use_neuro_model={use_neuro}")
-
+        
+    # 处理报告，解析文本为Finding对象
     def process_report(self, findings_text: str, conclusion_text: str) -> Report:
         report = Report(findings=findings_text, conclusion=conclusion_text)
         
@@ -33,7 +33,8 @@ class ContradictionDetector:
         report.conclusion_parsed = self.parser.parse(conclusion_text)
         
         return report
-
+        
+    # 检测矛盾
     def detect_conflicts(self, report: Report) -> Tuple[List[ConflictResult], str]:
         conflicts, all_high_confidence = self.rule_engine.check_conflicts(
             report.findings_parsed,
@@ -45,7 +46,8 @@ class ContradictionDetector:
         confidence_level = self.rule_engine.get_confidence_level(conflicts)
         
         return conflicts, confidence_level
-
+        
+    # 分析报告，包括规则引擎检测和NLI分析
     def analyze(self, findings_text: str, conclusion_text: str) -> dict:
         self.logger.debug(f"开始分析报告 - 所见: {findings_text[:50]}... 结论: {conclusion_text[:50]}...")
         
@@ -80,7 +82,7 @@ class ContradictionDetector:
         
         return result
 
-
+# 格式化输出结果
 def format_result(result: dict) -> str:
     output = []
     
@@ -139,7 +141,7 @@ def format_result(result: dict) -> str:
     
     return "\n".join(output)
 
-
+# 运行测试用例
 def run_test_cases():
     detector = ContradictionDetector()
     
@@ -163,7 +165,8 @@ def run_test_cases():
         
         print()
 
-
+        
+# 交互式模式
 def interactive_mode():
     detector = ContradictionDetector()
     

@@ -9,19 +9,20 @@ from radiology_checker.core.parser import FindingParser
 from radiology_checker.core.rule_engine import RuleEngine
 from radiology_checker.logger import get_logger
 
-
+# 定义NLI模型判定结果结构
 class NLIResult:
     def __init__(self, is_conflict: bool, confidence: float, explanation: str, is_ambiguous: bool = False):
-        self.is_conflict = is_conflict
-        self.confidence = confidence
-        self.explanation = explanation
-        self.is_ambiguous = is_ambiguous
+        self.is_conflict = is_conflict  # 是否矛盾
+        self.confidence = confidence  # 判定置信度
+        self.explanation = explanation  # 判定解释说明
+        self.is_ambiguous = is_ambiguous  # 是否为边界案例（需人工审核）
 
+# 定义NLI模型的抽象接口
 class NLIModelInterface:
     def predict(self, premise: str, hypothesis: str) -> NLIResult:
         raise NotImplementedError("Subclasses must implement predict method")
 
-
+# 定义基于规则的NLI回退模型
 class RuleBasedNLIFallback(NLIModelInterface):
     def predict(self, premise: str, hypothesis: str) -> NLIResult:
         from radiology_checker.core.parser import FindingParser
@@ -60,7 +61,7 @@ class RuleBasedNLIFallback(NLIModelInterface):
                 confidence=quality_confidence,
                 explanation=f"NLI回退：未检测到矛盾 (匹配置信度: {quality_confidence:.2f})"
             )
-    
+    # 计算“所见”和“结论”的匹配置信度
     def _calculate_match_confidence(self, findings: List[Finding], 
                                     conclusions: List[Finding],
                                     rule_engine: RuleEngine) -> float:
@@ -103,7 +104,7 @@ class RuleBasedNLIFallback(NLIModelInterface):
         
         return max(0.35, min(0.95, confidence))
 
-
+# 定义NLI模型管理器，协调规则引擎和nli模型，做出最终决策
 class NLIManager:
     def __init__(self, model: Optional[NLIModelInterface] = None, use_neuro_model: bool = False):
         self.logger = get_logger('NLIManager')
@@ -126,6 +127,7 @@ class NLIManager:
         self.model = model or RuleBasedNLIFallback()
         self.logger.info(f"NLI管理器初始化完成 - 使用神经NLI: {use_neuro_model}")
     
+    # 计算“无矛盾”的匹配置信度，当规则引擎没有检测到冲突时，计算"无冲突"的可信度
     def _calculate_no_conflict_confidence(self, report: Report) -> float:
         findings = report.findings_parsed
         conclusions = report.conclusion_parsed
@@ -171,7 +173,12 @@ class NLIManager:
             confidence *= (0.8 + 0.2 * ratio)
         
         return max(0.35, min(0.95, confidence))
-    
+    # 主入口，根据置信度等级和规则引擎检测到的矛盾数，判断最终决策
+    # 如果置信度等级为"high"，且规则引擎检测到矛盾，直接返回规则引擎的判断
+    # 如果置信度等级为"low"，且规则引擎没有检测到矛盾，计算"无冲突"的可信度
+    # 如果"无冲突"的可信度低于0.60，且用神经NLI模型作为第二意见
+    # 如果神经NLI模型判断为矛盾，返回神经NLI模型的判断
+    # 如果神经NLI模型判断为无矛盾，返回"无冲突"的判断
     def analyze(self, report: Report, rule_conflicts: list, 
                 confidence_level: str) -> Dict[str, Any]:
         self.logger.debug(f"NLI分析开始 - 置信度等级: {confidence_level}, 规则冲突数: {len(rule_conflicts)}")

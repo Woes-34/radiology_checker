@@ -3,7 +3,6 @@ from .core.parser import FindingParser
 from .core.rule_engine import RuleEngine, MatchQuality
 from .core.main import ContradictionDetector, format_result
 from .nli.interface import NLIModelInterface, NLIManager, NLIResult, RuleBasedNLIFallback
-from .nli.rule_model import EnhancedRuleBasedNLI, ContextualNLI
 from .nli.neuro_model import NeuroNLIModel
 from .config import ConfigManager, get_config
 from .logger import LoggerManager, get_logger
@@ -21,8 +20,6 @@ __all__ = [
     'NLIManager',
     'NLIResult',
     'RuleBasedNLIFallback',
-    'EnhancedRuleBasedNLI',
-    'ContextualNLI',
     'NeuroNLIModel',
     'ConfigManager',
     'get_config',

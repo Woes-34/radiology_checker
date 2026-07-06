@@ -1,3 +1,6 @@
+'''
+文本解析器
+'''
 import re
 import sys
 import os
@@ -7,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from radiology_checker.schema import Finding
 from radiology_checker.logger import get_logger
+
 
 class FindingParser:
     NEGATION_PATTERNS = [
@@ -269,15 +273,18 @@ class FindingParser:
         '以...为主', '倾向于', '不典型',
         '高度可疑', '高度怀疑',
     ]
-
+    
+    # 初始化解析器
     def __init__(self):
         self.logger = get_logger('FindingParser')
         self.negation_re = re.compile('|'.join(self.NEGATION_PATTERNS))
         self.qualifier_re = re.compile('|'.join(self.QUALIFIER_PATTERNS))
 
+    # 检测是否为否定句 （true有否定，false无否定）遍历 NEGATION_PATTERNS 列表，查找否定模式
     def _detect_negation(self, text: str) -> bool:
         return bool(self.negation_re.search(text))
 
+    # 检测文本中的侧位信息，是否为左/右/中/双/上/下，遍历 LATERALITY_PATTERNS 列表，查找侧位模式
     def _detect_laterality(self, text: str) -> Optional[str]:
         for lat, patterns in self.LATERALITY_PATTERNS.items():
             for pattern in patterns:
@@ -285,6 +292,8 @@ class FindingParser:
                     return lat
         return None
 
+    # 从文本中提取解剖部位信息，遍历 ANATOMICAL_SITES 列表，查找部位名称
+    # 如果没找到，尝试匹配 BONE_SPECIFIC_PATTERNS（骨骼特定模式）
     def _extract_anatomical_site(self, text: str) -> Optional[str]:
         for site in self.ANATOMICAL_SITES:
             if site in text:
@@ -310,6 +319,7 @@ class FindingParser:
 
         return None
 
+    # 从文本中提取病变类型信息，遍历 LESION_TYPES 列表，查找类型名称
     def _extract_lesion_type(self, text: str) -> Optional[str]:
         all_patterns = []
         for lesion_name, patterns in self.LESION_TYPES:
@@ -323,15 +333,20 @@ class FindingParser:
                 return lesion_name
 
         return None
-
+    
+    # 从文本中提取修饰符信息，限定词（明确、可疑、可能...），遍历 QUALIFIER_PATTERNS 列表，查找修饰符
     def _extract_qualifier(self, text: str) -> Optional[str]:
         matches = self.qualifier_re.findall(text)
         return ''.join(matches) if matches else None
 
+    # 分句方法，将文本按句号、分号、感叹号、问号等分隔符切分
+    # 从文本中提取句子信息，根据标点符号分割
     def _split_sentences(self, text: str) -> List[str]:
         sentences = re.split(r'[。；;！!？?]', text)
         return [s.strip() for s in sentences if s.strip()]
-
+    
+    # 主入口，解析文本，提取发现项Finding对象，对每个片段调用_parse_segment方法
+    # 遍历每个句子，根据逗号分隔，提取解剖部位、病变类型、修饰符信息
     def parse(self, text: str) -> List[Finding]:
         findings = []
         sentences = self._split_sentences(text)
@@ -355,7 +370,9 @@ class FindingParser:
 
         self.logger.debug(f"解析完成，提取到 {len(findings)} 个发现项")
         return findings
-
+    
+    # 分逗号方法，将文本按逗号、分号等分隔符切分
+    # 从文本中提取子句信息，根据逗号、分号等符号分割
     def _split_by_comma(self, text: str) -> List[str]:
         segments = re.split(r'[,，]', text)
         result = []
@@ -375,7 +392,8 @@ class FindingParser:
                 result.append(seg)
 
         return result
-
+    
+    # 解析子句，提取发现项Finding对象
     def _parse_segment(self, segment: str) -> List[Finding]:
         findings = []
         negative_descriptors = ['形态正常', '密度均匀', '未见异常', '未见病变', '正常']
@@ -444,7 +462,8 @@ class FindingParser:
         return findings
 
     UNCERTAINTY_QUALIFIERS = ['可疑', '可能', '疑似', '考虑', '提示', '倾向于', '轻微', '少许', '少量', '轻度']
-
+    
+    # 计算发现项置信度，根据解剖部位、病变类型、修饰符、侧位信息等计算置信度
     def _calculate_confidence(self, text: str, site: str, lesion: str,
                              laterality: Optional[str]) -> float:
         score = 0.7
